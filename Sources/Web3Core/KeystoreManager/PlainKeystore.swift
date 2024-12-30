@@ -4,7 +4,6 @@
 //
 
 import Foundation
-import web3swift_secp256k1
 
 public class PlainKeystore: AbstractKeystore {
 
