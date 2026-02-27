@@ -82,9 +82,9 @@ public class HDNode {
         if header == HDversion.privatePrefix {
             serializePrivate = true
         }
-        depth = data[4..<5].bytes[0]
+        depth = Array(data[4..<5])[0]
         parentFingerprint = data[5..<9]
-        childNumber = data[9..<13].bytes.withUnsafeBytes { $0.load(as: UInt32.self) }
+        childNumber = Array(data[9..<13]).withUnsafeBytes { $0.load(as: UInt32.self) }
         chaincode = data[13..<45]
         if serializePrivate {
             privateKey = data[46..<78]
@@ -106,16 +106,16 @@ public class HDNode {
         guard seed.count >= 16 else { return nil }
 
         guard let hmacKey = "Bitcoin seed".data(using: .ascii) else { return nil }
-        let hmac = HMAC(key: hmacKey.bytes, variant: .sha2(.sha512))
+        let hmac = HMAC(key: Array(hmacKey), variant: .sha2(.sha512))
 
-        guard let entropy = try? hmac.authenticate(seed.bytes), entropy.count == 64 else { return nil }
+        guard let entropy = try? hmac.authenticate(Array(seed)), entropy.count == 64 else { return nil }
         let I_L = entropy[0..<32]
         let I_R = entropy[32..<64]
         chaincode = Data(I_R)
         let privKeyCandidate = Data(I_L)
         guard SECP256K1.verifyPrivateKey(privateKey: privKeyCandidate) else { return nil }
         guard let pubKeyCandidate = SECP256K1.privateToPublic(privateKey: privKeyCandidate, compressed: true) else { return nil }
-        guard pubKeyCandidate.bytes.first == 0x02 || pubKeyCandidate.bytes.first == 0x03 else { return nil }
+        guard pubKeyCandidate.first == 0x02 || pubKeyCandidate.first == 0x03 else { return nil }
         publicKey = pubKeyCandidate
         privateKey = privKeyCandidate
         depth = 0x00
@@ -195,7 +195,7 @@ extension HDNode {
             let newPrivateKey = newPK.serialize().setLengthLeft(32),
             SECP256K1.verifyPrivateKey(privateKey: newPrivateKey),
             let newPublicKey = SECP256K1.privateToPublic(privateKey: newPrivateKey, compressed: true),
-            (newPublicKey.bytes[0] == 0x02 || newPublicKey.bytes[0] == 0x03),
+            (Array(newPublicKey)[0] == 0x02 || Array(newPublicKey)[0] == 0x03),
             self.depth < UInt8.max
         else { return nil }
         return createNode(chainCode: chainCode, depth: depth + 1, publicKey: newPublicKey, privateKey: newPrivateKey, childNumber: trueIndex)
@@ -226,9 +226,9 @@ extension HDNode {
             let tempKey = bn.serialize().setLengthLeft(32),
             SECP256K1.verifyPrivateKey(privateKey: tempKey),
             let pubKeyCandidate = SECP256K1.privateToPublic(privateKey: tempKey, compressed: true),
-            (pubKeyCandidate.bytes[0] == 0x02 || pubKeyCandidate.bytes[0] == 0x03),
+            (Array(pubKeyCandidate)[0] == 0x02 || Array(pubKeyCandidate)[0] == 0x03),
             let newPublicKey = SECP256K1.combineSerializedPublicKeys(keys: [self.publicKey, pubKeyCandidate], outputCompressed: true),
-            (newPublicKey.bytes[0] == 0x02 || newPublicKey.bytes[0] == 0x03),
+            (Array(newPublicKey)[0] == 0x02 || Array(newPublicKey)[0] == 0x03),
             self.depth < UInt8.max
         else { return nil }
 
@@ -280,14 +280,14 @@ extension HDNode {
     /// - Returns: 64 bytes entropy or `nil`.
     private func calculateEntropy(index: UInt32, privateKey: Data? = nil, hardened: Bool) -> [UInt8]? {
         let inputForHMAC = calculateHMACInput(index, privateKey: privateKey, hardened: hardened)
-        let hmac = HMAC(key: self.chaincode.bytes, variant: .sha2(.sha512))
-        guard let entropy = try? hmac.authenticate(inputForHMAC.bytes), entropy.count == 64 else { return nil }
+        let hmac = HMAC(key: Array(self.chaincode), variant: .sha2(.sha512))
+        guard let entropy = try? hmac.authenticate(Array(inputForHMAC)), entropy.count == 64 else { return nil }
         return entropy
     }
 
     public func serializeToString(serializePublic: Bool = true, version: HDversion = HDversion()) -> String? {
         guard let data = self.serialize(serializePublic: serializePublic, version: version) else { return nil }
-        return Base58.base58FromBytes(data.bytes)
+        return Base58.base58FromBytes(Array(data))
     }
 
     public func serialize(serializePublic: Bool = true, version: HDversion = HDversion()) -> Data? {

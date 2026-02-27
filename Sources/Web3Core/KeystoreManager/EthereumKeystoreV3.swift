@@ -109,14 +109,14 @@ public class EthereumKeystoreV3: AbstractKeystore {
         var aesCipher: AES
         switch aesMode.lowercased() {
         case "aes-128-cbc":
-            aesCipher = try AES(key: encryptionKey.bytes, blockMode: CBC(iv: IV.bytes), padding: .noPadding)
+            aesCipher = try AES(key: Array(encryptionKey), blockMode: CBC(iv: Array(IV)), padding: .noPadding)
         case "aes-128-ctr":
-            aesCipher = try AES(key: encryptionKey.bytes, blockMode: CTR(iv: IV.bytes), padding: .noPadding)
+            aesCipher = try AES(key: Array(encryptionKey), blockMode: CTR(iv: Array(IV)), padding: .noPadding)
         default:
             throw AbstractKeystoreError.aesError("EthereumKeystoreV3. AES error: given AES mode can be one of 'aes-128-cbc' or 'aes-128-ctr'. Instead '\(aesMode)' was given.")
         }
 
-        let encryptedKeyData = Data(try aesCipher.encrypt(privateKey.bytes))
+        let encryptedKeyData = Data(try aesCipher.encrypt(Array(privateKey)))
         let dataForMAC = last16bytes + encryptedKeyData
         let mac = dataForMAC.sha3(.keccak256)
         let kdfparams = KdfParamsV3(salt: saltData.toHexString(), dklen: dkLen, n: N, p: P, r: R, c: nil, prf: nil)
@@ -188,7 +188,7 @@ public class EthereumKeystoreV3: AbstractKeystore {
             guard let passData = password.data(using: .utf8) else {
                 return nil
             }
-            guard let derivedArray = try? PKCS5.PBKDF2(password: passData.bytes, salt: saltData.bytes, iterations: c, keyLength: derivedLen, variant: hashVariant!).calculate() else {
+            guard let derivedArray = try? PKCS5.PBKDF2(password: Array(passData), salt: Array(saltData), iterations: c, keyLength: derivedLen, variant: hashVariant!).calculate() else {
                 return nil
             }
             passwordDerivedKey = Data(derivedArray)
@@ -220,15 +220,15 @@ public class EthereumKeystoreV3: AbstractKeystore {
         var decryptedPK: [UInt8]?
         switch cipher {
         case "aes-128-ctr":
-            guard let aesCipher = try? AES(key: decryptionKey.bytes, blockMode: CTR(iv: IV.bytes), padding: .noPadding) else {
+            guard let aesCipher = try? AES(key: Array(decryptionKey), blockMode: CTR(iv: Array(IV)), padding: .noPadding) else {
                 return nil
             }
-            decryptedPK = try aesCipher.decrypt(cipherText.bytes)
+            decryptedPK = try aesCipher.decrypt(Array(cipherText))
         case "aes-128-cbc":
-            guard let aesCipher = try? AES(key: decryptionKey.bytes, blockMode: CBC(iv: IV.bytes), padding: .noPadding) else {
+            guard let aesCipher = try? AES(key: Array(decryptionKey), blockMode: CBC(iv: Array(IV)), padding: .noPadding) else {
                 return nil
             }
-            decryptedPK = try? aesCipher.decrypt(cipherText.bytes)
+            decryptedPK = try? aesCipher.decrypt(Array(cipherText))
         default:
             return nil
         }
